@@ -1,0 +1,119 @@
+---
+title: "Untitled"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(tidymodels)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(ranger) #for random forests
+library(randomForest) #also for random forests
+library(caret)
+library(skimr)
+library(GGally)
+library(gridExtra)
+library(vip) #variable importance
+
+amesstudent <- read_csv("ames_student.csv")
+amesstudent = amesstudent %>% mutate_if(is.character, as_factor)
+
+```
+
+```{r}
+set.seed(123)
+amesstudent_split = initial_split(amesstudent, prop = 0.7, strata = Above_Median)
+train = training(amesstudent_split)
+test = testing(amesstudent_split)
+```
+
+```{r}
+set.seed(123)
+rf_folds = vfold_cv(train, v = 5)
+```
+
+
+```{r}
+rf_res_tuned = readRDS("rf_res_tuned.rds")
+
+# amesstudent_recipe = recipe(Above_Median ~., train) %>%
+#   step_dummy(all_nominal(), -all_outcomes())
+# 
+# rf_model = rand_forest(mtry = tune(), min_n = tune(), trees = 500) %>%
+#   set_engine("ranger", importance = "permutation") %>%
+#   set_mode("classification")
+#   
+# amesstudent_wflow =
+#   workflow() %>%
+#   add_model(rf_model) %>%
+#   add_recipe(amesstudent_recipe)
+# 
+# rf_grid = grid_regular(
+#   mtry(range = c(50, 150)),
+#   min_n(range = c(0, 19)),
+#   levels = 5
+# )
+# 
+# set.seed(123)
+# rf_res_tuned = tune_grid(
+#   amesstudent_wflow,
+#   resamples = rf_folds,
+#   grid = 20
+# )
+```
+
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+rf_res_tuned %>%
+  collect_metrics() %>%
+  filter(.metric == "accuracy") %>%
+  mutate(min_n = factor(min_n)) %>%
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "Accuracy")
+```
+
+```{r}
+final_rf_fit = readRDS("final_rf_fit.rds")
+```
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+p1 = ggplot(train, aes(x = Above_Median, y = Gr_Liv_Area)) + geom_boxplot()
+p2 = ggplot(train, aes(x = Above_Median, y = Year_Built)) + geom_boxplot()
+p3 = ggplot(train, aes(x = Above_Median, y = Garage_Cars)) + geom_boxplot()
+p4 = ggplot(train, aes(x = Above_Median, y = Full_Bath)) + geom_boxplot()
+p5 = ggplot(train, aes(x = Above_Median, y = Garage_Area)) + geom_boxplot()
+grid.arrange(p1,p2,p3,p4,p5, ncol = 3)
+```
+
+### Chart C
+
+```{r}
+p6 = ggplot(train, aes(x = Above_Median, y = First_Flr_SF)) + geom_boxplot()
+p7 = ggplot(train, aes(x = Above_Median, y = Year_Remod_Add)) + geom_boxplot()
+p8 = ggplot(train, aes(x = Above_Median, y = Total_Bsmt_SF)) + geom_boxplot()
+p9 = ggplot(train, aes(x = Above_Median, y = Lot_Area)) + geom_boxplot()
+p10 = ggplot(train, aes(x = Above_Median, y = Second_Flr_SF)) + geom_boxplot()
+
+grid.arrange(p6,p7,p8,p9,p10, ncol = 3)
+```
+
